@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>蔵書管理（MVP）</title>
+  <title>蔵書管理 かんばん</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main class="container">
-    <h1>蔵書管理（MVP）</h1>
+    <h1>蔵書管理 かんばん</h1>
 
     <section class="form-section">
       <h2>本を追加</h2>
@@ -20,9 +20,29 @@
       </form>
     </section>
 
-    <section class="list-section">
-      <h2>蔵書一覧</h2>
-      <ul id="book-list" class="book-list" aria-live="polite"></ul>
+    <section class="kanban-section">
+      <div class="kanban-board">
+        <div class="kanban-list">
+          <h2>積読</h2>
+          <div class="kanban-cards" data-status="積読"></div>
+        </div>
+        <div class="kanban-list">
+          <h2>読了</h2>
+          <div class="kanban-cards" data-status="読了"></div>
+        </div>
+        <div class="kanban-list">
+          <h2>搬入する</h2>
+          <div class="kanban-cards" data-status="搬入する"></div>
+        </div>
+        <div class="kanban-list">
+          <h2>搬入済み</h2>
+          <div class="kanban-cards" data-status="搬入済み"></div>
+        </div>
+        <div class="kanban-list">
+          <h2>売れた</h2>
+          <div class="kanban-cards" data-status="売れた"></div>
+        </div>
+      </div>
     </section>
   </main>
 
