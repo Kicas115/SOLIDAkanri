@@ -1,5 +1,7 @@
 /* かんばんボード: 本を異なるステータスリストに移動 */
 const STORAGE_KEY = 'kanban_books_v2'
+let currentStatus = null
+let editingIndex = null
 
 function getBooks(){
   try{
@@ -24,19 +26,29 @@ function renderKanban(){
     
     const booksInStatus = books.filter(b => b.status === status)
     
-    if(booksInStatus.length === 0){
-      const empty = document.createElement('div')
-      empty.className = 'empty-state'
-      empty.textContent = '本がありません'
-      container.appendChild(empty)
-      return
-    }
-    
     booksInStatus.forEach((b, idx) => {
       const bookIdx = books.indexOf(b)
       const card = createCard(b, bookIdx)
       container.appendChild(card)
     })
+    
+    // 各リストの一番下に「本を追加」カードを追加
+    const addCard = document.createElement('div')
+    addCard.className = 'kanban-card add-card'
+    addCard.textContent = '+ 本を追加'
+    addCard.addEventListener('click', () => {
+      currentStatus = status
+      openAddModal()
+    })
+    container.appendChild(addCard)
+    
+    // カードがない場合は「本がありません」を表示
+    if(booksInStatus.length === 0){
+      const empty = document.createElement('div')
+      empty.className = 'empty-state'
+      empty.textContent = '本がありません'
+      container.insertBefore(empty, container.firstChild)
+    }
   })
 }
 
@@ -52,28 +64,56 @@ function createCard(book, idx){
   
   const meta = document.createElement('div')
   meta.className = 'card-meta'
-  if(book.author || book.year){
-    meta.textContent = `${escapeHtml(book.author || '-')} ${book.year ? '• ' + escapeHtml(String(book.year)) : ''}`
-  }
   
-  const controls = document.createElement('div')
-  controls.className = 'card-controls'
+  const costSpan = document.createElement('span')
+  costSpan.className = 'editable-field'
+  costSpan.dataset.field = 'cost'
+  costSpan.dataset.index = idx
+  costSpan.textContent = book.cost ? `¥${Number(book.cost).toLocaleString()}` : '¥—'
+  costSpan.title = 'クリックで編集'
   
-  const deleteBtn = document.createElement('button')
-  deleteBtn.className = 'delete-btn'
-  deleteBtn.textContent = '削除'
-  deleteBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    if(confirm(`『${book.title}』を削除しますか？`)){
-      deleteBook(idx)
-    }
-  })
+  const priceSpan = document.createElement('span')
+  priceSpan.className = 'editable-field'
+  priceSpan.dataset.field = 'price'
+  priceSpan.dataset.index = idx
+  priceSpan.textContent = book.price ? `¥${Number(book.price).toLocaleString()}` : '¥—'
+  priceSpan.title = 'クリックで編集'
   
-  controls.appendChild(deleteBtn)
+  const profitAmount = (book.cost !== undefined && book.price !== undefined && book.cost !== null && book.price !== null) 
+    ? book.price - book.cost 
+    : null
+  const profitClass = profitAmount !== null && profitAmount >= 0 ? 'positive' : (profitAmount !== null ? 'negative' : '')
+  const profitText = profitAmount !== null ? `¥${Number(profitAmount).toLocaleString()}` : '¥—'
+  
+  const profitSpan = document.createElement('span')
+  profitSpan.className = `profit-field ${profitClass}`
+  profitSpan.textContent = profitText
+  
+  meta.appendChild(costSpan)
+  meta.appendChild(document.createTextNode(' / '))
+  meta.appendChild(priceSpan)
+  meta.appendChild(document.createTextNode(' / '))
+  meta.appendChild(profitSpan)
   
   card.appendChild(title)
-  if(meta.textContent) card.appendChild(meta)
-  card.appendChild(controls)
+  card.appendChild(meta)
+  
+  // カード全体をクリックして編集
+  card.addEventListener('click', (e) => {
+    if(e.target.classList.contains('editable-field')) return
+    e.stopPropagation()
+    openEditModal(idx)
+  })
+  
+  // 編集フィールドのクリックイベント
+  costSpan.addEventListener('click', (e) => {
+    e.stopPropagation()
+    editField(costSpan, 'cost', book.cost || '')
+  })
+  priceSpan.addEventListener('click', (e) => {
+    e.stopPropagation()
+    editField(priceSpan, 'price', book.price || '')
+  })
   
   card.addEventListener('dragstart', handleDragStart)
   card.addEventListener('dragend', handleDragEnd)
@@ -81,9 +121,50 @@ function createCard(book, idx){
   return card
 }
 
+function editField(span, field, currentValue){
+  if(span.querySelector('input')) return
+  
+  const input = document.createElement('input')
+  input.type = 'number'
+  input.min = '0'
+  input.step = '0.01'
+  input.value = currentValue
+  input.className = 'edit-input'
+  
+  const idx = parseInt(span.dataset.index)
+  
+  function saveEdit(){
+    const newValue = input.value ? Number(input.value) : null
+    const books = getBooks()
+    books[idx][field] = newValue
+    saveBooks(books)
+    renderKanban()
+  }
+  
+  function cancelEdit(){
+    renderKanban()
+  }
+  
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') saveEdit()
+    if(e.key === 'Escape') cancelEdit()
+  })
+  
+  input.addEventListener('blur', saveEdit)
+  
+  span.textContent = ''
+  span.appendChild(input)
+  input.focus()
+  input.select()
+}
+
 let draggedCard = null
 
 function handleDragStart(e){
+  if(this.classList.contains('add-card')) {
+    e.preventDefault()
+    return
+  }
   draggedCard = this
   this.classList.add('dragging')
   e.dataTransfer.effectAllowed = 'move'
@@ -134,6 +215,13 @@ function addBook(book){
   renderKanban()
 }
 
+function updateBook(index, book){
+  const books = getBooks()
+  books[index] = { ...books[index], ...book }
+  saveBooks(books)
+  renderKanban()
+}
+
 function deleteBook(index){
   const books = getBooks()
   books.splice(index, 1)
@@ -147,24 +235,97 @@ function escapeHtml(s){
   })[c])
 }
 
+function openAddModal(){
+  const modal = document.getElementById('add-modal')
+  modal.classList.add('modal-open')
+  document.getElementById('add-title').focus()
+}
+
+function closeAddModal(){
+  currentStatus = null
+  const modal = document.getElementById('add-modal')
+  modal.classList.remove('modal-open')
+  document.getElementById('add-form').reset()
+}
+
+function openEditModal(index){
+  editingIndex = index
+  const books = getBooks()
+  const book = books[index]
+  
+  document.getElementById('edit-title').value = book.title
+  document.getElementById('edit-cost').value = book.cost || ''
+  document.getElementById('edit-price').value = book.price || ''
+  
+  const modal = document.getElementById('edit-modal')
+  modal.classList.add('modal-open')
+  document.getElementById('edit-title').focus()
+}
+
+function closeEditModal(){
+  editingIndex = null
+  const modal = document.getElementById('edit-modal')
+  modal.classList.remove('modal-open')
+  document.getElementById('edit-form').reset()
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   renderKanban()
   setupDropZones()
   
-  const form = document.getElementById('book-form')
-  form.addEventListener('submit', e=>{
+  // 新規追加モーダルの閉じる
+  document.getElementById('add-modal').querySelector('.modal-close').addEventListener('click', closeAddModal)
+  document.getElementById('add-modal').querySelector('.modal-cancel').addEventListener('click', closeAddModal)
+  document.getElementById('add-modal').addEventListener('click', (e) => {
+    if(e.target.id === 'add-modal') closeAddModal()
+  })
+  
+  // 編集モーダルの閉じる
+  document.getElementById('edit-modal').querySelector('.modal-close').addEventListener('click', closeEditModal)
+  document.getElementById('edit-modal').querySelector('.modal-cancel').addEventListener('click', closeEditModal)
+  document.getElementById('edit-modal').addEventListener('click', (e) => {
+    if(e.target.id === 'edit-modal') closeEditModal()
+  })
+  
+  // 削除ボタン
+  document.getElementById('edit-modal').querySelector('.modal-delete').addEventListener('click', (e) => {
     e.preventDefault()
-    const title = document.getElementById('title').value.trim()
-    const author = document.getElementById('author').value.trim()
-    const year = document.getElementById('year').value
+    const book = getBooks()[editingIndex]
+    if(confirm(`『${book.title}』を削除しますか？`)){
+      deleteBook(editingIndex)
+      closeEditModal()
+    }
+  })
+  
+  // 新規追加フォーム
+  document.getElementById('add-form').addEventListener('submit', e=>{
+    e.preventDefault()
+    const title = document.getElementById('add-title').value.trim()
+    const cost = document.getElementById('add-cost').value
+    const price = document.getElementById('add-price').value
     if(!title) return alert('タイトルは必須です')
     addBook({
       title,
-      author,
-      year: year? Number(year): null,
+      cost: cost ? Number(cost) : null,
+      price: price ? Number(price) : null,
+      status: currentStatus,
       createdAt: Date.now()
     })
-    form.reset()
-    document.getElementById('title').focus()
+    closeAddModal()
+  })
+  
+  // 編集フォーム
+  document.getElementById('edit-form').addEventListener('submit', e=>{
+    e.preventDefault()
+    const title = document.getElementById('edit-title').value.trim()
+    const cost = document.getElementById('edit-cost').value
+    const price = document.getElementById('edit-price').value
+    if(!title) return alert('タイトルは必須です')
+    updateBook(editingIndex, {
+      title,
+      cost: cost ? Number(cost) : null,
+      price: price ? Number(price) : null
+    })
+    closeEditModal()
   })
 })

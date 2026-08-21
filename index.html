@@ -10,16 +10,6 @@
   <main class="container">
     <h1>蔵書管理 かんばん</h1>
 
-    <section class="form-section">
-      <h2>本を追加</h2>
-      <form id="book-form">
-        <label>タイトル<br><input id="title" required></label>
-        <label>著者<br><input id="author"></label>
-        <label>年<br><input id="year" type="number" min="0"></label>
-        <button type="submit">追加</button>
-      </form>
-    </section>
-
     <section class="kanban-section">
       <div class="kanban-board">
         <div class="kanban-list">
@@ -44,6 +34,45 @@
         </div>
       </div>
     </section>
+
+    <!-- 新規追加モーダル -->
+    <div id="add-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>本を追加</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <form id="add-form">
+          <label>タイトル<br><input id="add-title" required></label>
+          <label>仕入れ値（¥）<br><input id="add-cost" type="number" min="0" step="0.01"></label>
+          <label>売値（¥）<br><input id="add-price" type="number" min="0" step="0.01"></label>
+          <div class="modal-actions">
+            <button type="submit">追加</button>
+            <button type="button" class="modal-cancel">キャンセル</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 編集モーダル -->
+    <div id="edit-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>本を編集</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <form id="edit-form">
+          <label>タイトル<br><input id="edit-title" required></label>
+          <label>仕入れ値（¥）<br><input id="edit-cost" type="number" min="0" step="0.01"></label>
+          <label>売値（¥）<br><input id="edit-price" type="number" min="0" step="0.01"></label>
+          <div class="modal-actions">
+            <button type="submit">保存</button>
+            <button type="button" class="modal-delete">削除</button>
+            <button type="button" class="modal-cancel">キャンセル</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </main>
 
   <script src="app.js" defer></script>
