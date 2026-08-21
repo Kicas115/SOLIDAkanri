@@ -231,9 +231,79 @@ function deleteBook(index){
 
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'
   })[c])
 }
+
+async function fetchPromosFromServer(books){
+  try{
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({books})
+    })
+    if(!resp.ok) throw new Error('server error')
+    const data = await resp.json()
+    return data.promos || []
+  }catch(e){
+    console.warn('server generate failed', e)
+    return null
+  }
+}
+
+function clientGeneratePromos(books){
+  if(!books || books.length === 0) return ['搬入済みの本がありません。']
+  return books.slice(0,5).map(b=>{
+    const title = b.title.length > 30 ? b.title.slice(0,27) + '…' : b.title
+    const price = b.price ? `¥${Number(b.price).toLocaleString()}` : ''
+    return `${title} ${price}。状態良好・即購入歓迎！`
+  })
+}
+
+async function generateSNS(){
+  const books = getBooks().filter(b => b.status === '搬入済み')
+  const modal = document.getElementById('sns-modal')
+  const statusEl = document.getElementById('sns-status')
+  const resultsEl = document.getElementById('sns-results')
+  statusEl.textContent = '生成中...'
+  resultsEl.innerHTML = ''
+  modal.classList.add('modal-open')
+
+  let promos = await fetchPromosFromServer(books)
+  if(promos === null){
+    promos = clientGeneratePromos(books)
+    statusEl.textContent = 'ローカル生成（API未設定）'
+  } else {
+    statusEl.textContent = '生成結果'
+  }
+
+  promos.forEach(p=>{
+    const pEl = document.createElement('div')
+    pEl.className = 'sns-line'
+    pEl.textContent = p
+    resultsEl.appendChild(pEl)
+  })
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const snsBtn = document.getElementById('sns-btn')
+  if(snsBtn) snsBtn.addEventListener('click', generateSNS)
+
+  const snsClose = document.getElementById('sns-modal-close')
+  if(snsClose) snsClose.addEventListener('click', ()=>document.getElementById('sns-modal').classList.remove('modal-open'))
+
+  const snsCopy = document.getElementById('sns-copy')
+  if(snsCopy) snsCopy.addEventListener('click', async ()=>{
+    const lines = Array.from(document.querySelectorAll('.sns-line')).map(n=>n.textContent).join('\n\n')
+    try{
+      await navigator.clipboard.writeText(lines)
+      alert('コピーしました')
+    }catch(e){
+      console.warn('copy failed', e)
+      prompt('以下をコピーしてください', lines)
+    }
+  })
+})
 
 function openAddModal(){
   const modal = document.getElementById('add-modal')

@@ -8,7 +8,12 @@
 </head>
 <body>
   <main class="container">
-    <h1>蔵書管理 かんばん</h1>
+    <header class="app-header">
+      <h1>蔵書管理 かんばん</h1>
+      <div class="header-actions">
+        <button id="sns-btn" class="btn-sns">SNS販促</button>
+      </div>
+    </header>
 
     <section class="kanban-section">
       <div class="kanban-board">
@@ -74,6 +79,22 @@
       </div>
     </div>
   </main>
+
+  <div id="sns-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>SNS販促文</h2>
+        <button class="modal-close" id="sns-modal-close">&times;</button>
+      </div>
+      <div id="sns-modal-body" style="padding:16px;min-height:60px">
+        <div id="sns-status">生成待ち</div>
+        <div id="sns-results"></div>
+      </div>
+      <div style="padding:0 16px 16px">
+        <button id="sns-copy" style="width:100%;padding:10px;border:none;border-radius:6px;background:var(--accent);color:#fff">コピー</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js" defer></script>
 </body>
