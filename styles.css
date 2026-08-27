@@ -1,13 +1,14 @@
 :root{--bg:#f6f8fa;--card:#fff;--accent:#0366d6;--border:#ddd}
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,Arial,sans-serif;margin:0;background:var(--bg);color:#222}
-.container{max-width:1400px;margin:20px auto;padding:20px}
+html{overflow-x:hidden}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,Arial,sans-serif;margin:0;background:var(--bg);color:#222;overflow-x:hidden}
+.container{width:100%;max-width:1400px;margin:20px auto;padding:20px}
 h1{margin:0 0 24px;font-size:24px}
 
 /* かんばんボード */
 .kanban-section{background:var(--bg)}
 .kanban-board{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;overflow-x:auto;padding-bottom:16px}
-.kanban-list{background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column}
+.kanban-list{min-width:0;background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column}
 .kanban-list h2{margin:0;padding:12px;background:#f6f8fa;border-bottom:1px solid var(--border);font-size:14px;font-weight:600}
 .kanban-cards{flex:1;padding:12px;min-height:200px;display:flex;flex-direction:column;gap:8px;background:var(--card)}
 .kanban-cards.drag-over{background:#f0f0f0}
@@ -30,9 +31,9 @@ h1{margin:0 0 24px;font-size:24px}
 .edit-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(3,102,214,.1)}
 
 /* モーダル */
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal{display:none;position:fixed;inset:0;width:100%;height:100%;padding:12px;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal.modal-open{display:flex}
-.modal-content{background:var(--card);border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,.1);width:90%;max-width:400px;overflow:hidden}
+.modal-content{background:var(--card);border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,.1);width:100%;max-width:400px;max-height:100%;overflow:auto}
 .modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--border)}
 .modal-header h2{margin:0;font-size:16px}
 .modal-close{background:transparent;border:none;font-size:24px;cursor:pointer;color:#999;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
@@ -50,8 +51,30 @@ h1{margin:0 0 24px;font-size:24px}
 .modal-cancel:hover{background:#e0e0e0}
 
 @media(max-width:768px){
+  .container{margin:0 auto;padding:12px}
   .kanban-board{grid-template-columns:1fr;gap:12px}
-  .modal-content{width:95%}
+  .modal-content{width:100%}
+  .kanban-card{cursor:pointer}
+  .editable-field{display:inline-block;padding:6px 4px}
+  .modal-actions button,.btn-sns{min-height:44px}
+}
+
+@media(max-width:480px){
+  .container{padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left))}
+  .app-header{align-items:flex-start;gap:12px}
+  .app-header h1{font-size:18px;line-height:1.35;margin-bottom:0}
+  .btn-sns{padding:8px 10px;white-space:nowrap}
+  .kanban-cards{padding:10px}
+  .card-meta{overflow-wrap:anywhere}
+  .modal{padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left))}
 }
 
 /* ヘッダーとSNSボタン */
@@ -65,3 +88,7 @@ h1{margin:0 0 24px;font-size:24px}
 #sns-results{margin-top:8px;display:flex;flex-direction:column;gap:8px}
 .sns-line{padding:8px;border-radius:6px;background:#fafafa;border:1px solid var(--border);font-size:14px}
 #sns-status{font-size:12px;color:#666;margin-bottom:8px}
+
+@media(max-width:480px){
+  .app-header h1{font-size:18px;line-height:1.35;margin-bottom:0}
+}
