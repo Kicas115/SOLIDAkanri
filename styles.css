@@ -53,7 +53,8 @@ h1{margin:0 0 24px;font-size:24px}
 
 @media(max-width:768px){
   .container{margin:0 auto;padding:12px}
-  .kanban-board{grid-template-columns:1fr;gap:12px}
+  .kanban-board{grid-template-columns:repeat(5,minmax(220px,1fr));gap:12px}
+  .kanban-list{min-width:220px}
   .modal-content{width:100%}
   .kanban-card{cursor:pointer}
   .editable-field{display:inline-block;padding:6px 4px}
