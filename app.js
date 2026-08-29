@@ -100,6 +100,12 @@ function createCard(book, idx){
   
   // カード全体をクリックして編集
   card.addEventListener('click', (e) => {
+    if(card.dataset.dragMoved === 'true'){
+      card.dataset.dragMoved = 'false'
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     if(e.target.classList.contains('editable-field')) return
     e.stopPropagation()
     openEditModal(idx)
@@ -117,6 +123,10 @@ function createCard(book, idx){
   
   card.addEventListener('dragstart', handleDragStart)
   card.addEventListener('dragend', handleDragEnd)
+  card.addEventListener('touchstart', handleTouchStart, { passive: false })
+  card.addEventListener('touchmove', handleTouchMove, { passive: false })
+  card.addEventListener('touchend', handleTouchEnd, { passive: false })
+  card.addEventListener('touchcancel', () => cleanupTouchDrag(), { passive: false })
   
   return card
 }
@@ -159,6 +169,52 @@ function editField(span, field, currentValue){
 }
 
 let draggedCard = null
+let touchDragState = null
+let touchGhost = null
+
+function clearDropHighlights(){
+  document.querySelectorAll('.kanban-cards.drag-over').forEach((container) => {
+    container.classList.remove('drag-over')
+  })
+}
+
+function moveBookToStatus(bookIdx, newStatus){
+  if(Number.isNaN(bookIdx) || !newStatus) return
+
+  const books = getBooks()
+  if(!books[bookIdx]) return
+
+  books[bookIdx].status = newStatus
+  saveBooks(books)
+  renderKanban()
+}
+
+function findDropContainer(clientX, clientY){
+  const target = document.elementFromPoint(clientX, clientY)
+  if(!target) return null
+
+  return target.closest('.kanban-cards')
+}
+
+function updateTouchGhostPosition(clientX, clientY){
+  if(!touchGhost) return
+
+  touchGhost.style.left = `${clientX + 12}px`
+  touchGhost.style.top = `${clientY + 12}px`
+}
+
+function cleanupTouchDrag(){
+  if(touchGhost){
+    touchGhost.remove()
+    touchGhost = null
+  }
+  if(draggedCard){
+    draggedCard.classList.remove('dragging')
+    draggedCard = null
+  }
+  touchDragState = null
+  clearDropHighlights()
+}
 
 function handleDragStart(e){
   if(this.classList.contains('add-card')) {
@@ -172,6 +228,87 @@ function handleDragStart(e){
 
 function handleDragEnd(e){
   this.classList.remove('dragging')
+  draggedCard = null
+}
+
+function handleTouchStart(e){
+  if(this.classList.contains('add-card')) return
+  if(e.target.closest('.editable-field')) return
+
+  const touch = e.touches[0]
+  if(!touch) return
+
+  e.preventDefault()
+  draggedCard = this
+  touchDragState = {
+    card: this,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    moved: false
+  }
+  this.classList.add('dragging')
+  this.dataset.dragMoved = 'false'
+
+  if(!touchGhost){
+    touchGhost = this.cloneNode(true)
+    touchGhost.classList.add('touch-drag-ghost')
+    touchGhost.style.width = `${this.getBoundingClientRect().width}px`
+    document.body.appendChild(touchGhost)
+  }
+  updateTouchGhostPosition(touch.clientX, touch.clientY)
+}
+
+function handleTouchMove(e){
+  if(!touchDragState) return
+
+  const touch = e.touches[0]
+  if(!touch) return
+
+  const dx = touch.clientX - touchDragState.startX
+  const dy = touch.clientY - touchDragState.startY
+  if(Math.abs(dx) > 8 || Math.abs(dy) > 8){
+    touchDragState.moved = true
+    touchDragState.card.dataset.dragMoved = 'true'
+    e.preventDefault()
+  }
+
+  updateTouchGhostPosition(touch.clientX, touch.clientY)
+
+  const container = findDropContainer(touch.clientX, touch.clientY)
+  clearDropHighlights()
+  if(container){
+    container.classList.add('drag-over')
+  }
+}
+
+function handleTouchEnd(e){
+  if(!touchDragState) return
+
+  const touch = e.changedTouches[0]
+  const targetContainer = touch ? findDropContainer(touch.clientX, touch.clientY) : null
+
+  if(touchDragState.moved && targetContainer){
+    const bookIdx = parseInt(draggedCard.dataset.index)
+    moveBookToStatus(bookIdx, targetContainer.dataset.status)
+    cleanupTouchDrag()
+    return
+  }
+
+  if(touchDragState.moved){
+    cleanupTouchDrag()
+    return
+  }
+
+  if(draggedCard){
+    draggedCard.classList.remove('dragging')
+  }
+  if(touchGhost){
+    touchGhost.remove()
+    touchGhost = null
+  }
+  draggedCard = null
+  touchDragState = null
+  clearDropHighlights()
 }
 
 function setupDropZones(){
@@ -180,7 +317,9 @@ function setupDropZones(){
   containers.forEach(container => {
     container.addEventListener('dragover', (e) => {
       e.preventDefault()
-      e.dataTransfer.dropEffect = 'move'
+      if(e.dataTransfer){
+        e.dataTransfer.dropEffect = 'move'
+      }
       container.classList.add('drag-over')
     })
     
@@ -198,11 +337,7 @@ function setupDropZones(){
       
       const bookIdx = parseInt(draggedCard.dataset.index)
       const newStatus = container.dataset.status
-      
-      const books = getBooks()
-      books[bookIdx].status = newStatus
-      saveBooks(books)
-      renderKanban()
+      moveBookToStatus(bookIdx, newStatus)
     })
   })
 }
