@@ -1,7 +1,79 @@
 /* かんばんボード: 本を異なるステータスリストに移動 */
 const STORAGE_KEY = 'kanban_books_v2'
+const SNS_API_KEY_STORAGE_KEY = 'sns_api_key_session_v1'
+const SNS_MODEL_NAME_STORAGE_KEY = 'sns_model_name_session_v1'
+const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite'
 let currentStatus = null
 let editingIndex = null
+
+function getStoredApiKey(){
+  try{
+    return sessionStorage.getItem(SNS_API_KEY_STORAGE_KEY) || ''
+  }catch(e){
+    console.warn('failed to read sns api key', e)
+    return ''
+  }
+}
+
+function saveStoredApiKey(apiKey){
+  const value = (apiKey || '').trim()
+  try{
+    if(!value){
+      sessionStorage.removeItem(SNS_API_KEY_STORAGE_KEY)
+      return
+    }
+    sessionStorage.setItem(SNS_API_KEY_STORAGE_KEY, value)
+  }catch(e){
+    console.warn('failed to save sns api key', e)
+  }
+}
+
+function getStoredModelName(){
+  try{
+    const value = sessionStorage.getItem(SNS_MODEL_NAME_STORAGE_KEY)
+    return (value && value.trim()) || DEFAULT_GEMINI_MODEL
+  }catch(e){
+    console.warn('failed to read sns model name', e)
+    return DEFAULT_GEMINI_MODEL
+  }
+}
+
+function saveStoredModelName(modelName){
+  const value = (modelName || '').trim()
+  try{
+    if(!value){
+      sessionStorage.removeItem(SNS_MODEL_NAME_STORAGE_KEY)
+      return
+    }
+    sessionStorage.setItem(SNS_MODEL_NAME_STORAGE_KEY, value)
+  }catch(e){
+    console.warn('failed to save sns model name', e)
+  }
+}
+
+function maskApiKey(apiKey){
+  if(!apiKey) return '未設定'
+  const trimmed = apiKey.trim()
+  if(trimmed.length <= 4) return '••••'
+  return `••••${trimmed.slice(-4)}`
+}
+
+function updateApiKeyStatus(){
+  const apiKey = getStoredApiKey()
+  const modelName = getStoredModelName()
+  const input = document.getElementById('sns-api-key-input')
+  const modelInput = document.getElementById('sns-model-input')
+  const statusEl = document.getElementById('sns-api-key-status')
+  if(input && apiKey){
+    input.value = ''
+  }
+  if(modelInput){
+    modelInput.value = modelName
+  }
+  if(statusEl){
+    statusEl.textContent = `${maskApiKey(apiKey)} / ${modelName}`
+  }
+}
 
 function getBooks(){
   try{
@@ -370,19 +442,131 @@ function escapeHtml(s){
   })[c])
 }
 
-async function fetchPromosFromServer(books){
-  try{
-    const resp = await fetch('/api/generate', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({books})
-    })
-    if(!resp.ok) throw new Error('server error')
-    const data = await resp.json()
-    return data.promos || []
-  }catch(e){
-    console.warn('server generate failed', e)
-    return null
+function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
+  const platformName = platform === 'x' ? 'X（Twitter）' : 'Instagram'
+  const isXFormat = platform === 'x'
+  const isCatchy = tone === 'catchy'
+  
+  if(!books || books.length === 0){
+    const emptyPrompt = `以下の条件で、${platformName}向けの販促文を1件作成してください。\n- 取り扱い本なし\n- 文章は短く、購入につながる表現にする\n- 1件のみ返す`
+    if(!isCatchy) {
+      return emptyPrompt + '\n- 丁寧で信頼感のある表現にする'
+    }
+    return emptyPrompt
+  }
+
+  const bookSummary = books.map((book, index) => {
+    const title = book.title || 'タイトル未設定'
+    const price = book.price != null ? `¥${Number(book.price).toLocaleString()}` : '価格未定'
+    return `${index + 1}. ${title} / ${price}`
+  }).join('\n')
+
+  const bookTitles = books.map(b => b.title).filter(Boolean).join('、')
+  
+  const charLimit = isXFormat ? '280文字程度' : '150文字程度'
+  const textLength = isXFormat ? '1文〜2文' : '1文〜2文'
+  const styleGuide = isCatchy 
+    ? '- 親しみやすく、親友に話しかけるようなカジュアルな表現にする\n- 絵文字や感情表現を適度に交える'
+    : '- 丁寧で信頼感のある表現にする\n- 本の質や価値を落ち着いた表現で伝える'
+  
+  const platformGuide = isXFormat
+    ? '- X（Twitter）の特性を活かし、シェアしたくなるような表現にする'
+    : '- Instagramの視覚的な雰囲気に合う、読みやすく美しい表現にする'
+
+  return `あなたは${platformName}の販促文作成担当です。以下の本リストをもとに、${platformName}向けの販促文を1件、${textLength}程度で出力してください。
+
+【重要】以下の各書籍について、Webで著者情報・内容概要・評判などを検索して、販促文に活かしてください：
+${bookTitles}
+
+${styleGuide}
+${platformGuide}
+- 本の魅力と購入意欲が伝わるようにする
+- 著者の実績、本の特徴、読者の感想など、Webで得られた情報を活用する
+- 1件ごとに改行して出力する
+- 文章だけを返し、説明文や見出しは不要
+
+本リスト:
+${bookSummary}`
+}
+
+async function fetchPromosFromServer(books, platform = 'x', tone = 'catchy'){
+  const apiKey = getStoredApiKey()
+  if(!apiKey) return { promos: null, error: 'APIキーが未設定です。' }
+
+  const prompt = buildGeminiPrompt(books, platform, tone)
+  const modelNames = [getStoredModelName(), DEFAULT_GEMINI_MODEL].filter((value, index, array) => value && array.indexOf(value) === index)
+  let lastError = null
+
+  for(const modelName of modelNames){
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`
+    try{
+      console.info('Gemini request', { modelName, url })
+      const requestBody = {
+        contents: [{
+          role: 'user',
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: 256
+        },
+        tools: [{
+          googleSearch: {}
+        }]
+      }
+      
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(requestBody)
+      })
+
+      if(!resp.ok){
+        const errorBody = await resp.text().catch(() => '')
+        lastError = { modelName, status: resp.status, body: errorBody }
+        console.warn('Gemini generate failed', { modelName, status: resp.status, body: errorBody, url })
+        if(resp.status !== 404){
+          return {
+            promos: null,
+            error: `Gemini APIエラー (${resp.status})。${errorBody ? errorBody : 'APIキーやモデルの利用可否を確認してください。'}`
+          }
+        }
+        continue
+      }
+
+      const data = await resp.json()
+      const text = (data?.candidates || [])
+        .map((candidate) => candidate?.content?.parts?.map((part) => part?.text || '').join('') || '')
+        .join('\n')
+        .trim()
+
+      if(!text){
+        return {
+          promos: null,
+          error: `Gemini API (${modelName}) から空の応答が返りました。キーの権限とモデルの有効化を確認してください。`
+        }
+      }
+
+      return {
+        promos: text
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 1),
+        error: null
+      }
+    }catch(e){
+      console.warn('Gemini fetch exception', { modelName, error: e })
+      lastError = { modelName, error: String(e) }
+      break
+    }
+  }
+
+  const detail = lastError ? JSON.stringify(lastError) : '詳細なし'
+  console.warn('Gemini all models failed', detail)
+  return {
+    promos: null,
+    error: `Gemini APIへの接続に失敗しました。モデル名とAPIキーを確認してください。詳細: ${detail}`
   }
 }
 
@@ -400,32 +584,113 @@ async function generateSNS(){
   const modal = document.getElementById('sns-modal')
   const statusEl = document.getElementById('sns-status')
   const resultsEl = document.getElementById('sns-results')
+  
+  const platformSelected = document.querySelector('input[name="sns-platform"]:checked')
+  const toneSelected = document.querySelector('input[name="sns-tone"]:checked')
+  const platform = platformSelected ? platformSelected.value : 'x'
+  const tone = toneSelected ? toneSelected.value : 'catchy'
+  
   statusEl.textContent = '生成中...'
   resultsEl.innerHTML = ''
   modal.classList.add('modal-open')
+  updateApiKeyStatus()
 
-  let promos = await fetchPromosFromServer(books)
+  const apiKey = getStoredApiKey()
+  if(!apiKey){
+    statusEl.textContent = 'Gemini APIキーが未設定です。保存ボタンで設定してください。'
+    const empty = document.createElement('div')
+    empty.className = 'sns-line'
+    empty.textContent = 'Gemini APIキーを設定すると、販促文を生成できます。'
+    resultsEl.appendChild(empty)
+    return
+  }
+
+  const apiResult = await fetchPromosFromServer(books, platform, tone)
+  let promos = apiResult.promos
   if(promos === null){
     promos = clientGeneratePromos(books)
-    statusEl.textContent = 'ローカル生成（API未設定）'
+    statusEl.textContent = apiResult.error || 'ローカル生成（API利用不可）'
   } else {
     statusEl.textContent = '生成結果'
   }
 
-  promos.forEach(p=>{
+  promos.forEach((p, index)=>{
+    const item = document.createElement('details')
+    item.className = 'sns-item'
+    item.open = true
+
+    const summary = document.createElement('summary')
+    summary.innerHTML = `販促文 ${index + 1} <button class="sns-copy-btn" type="button" data-text="${escapeHtml(p)}" title="この販促文をコピー">📋</button>`
+
     const pEl = document.createElement('div')
     pEl.className = 'sns-line'
     pEl.textContent = p
-    resultsEl.appendChild(pEl)
+
+    item.appendChild(summary)
+    item.appendChild(pEl)
+    resultsEl.appendChild(item)
+
+    const copyBtn = summary.querySelector('.sns-copy-btn')
+    if(copyBtn){
+      copyBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation()
+        const text = copyBtn.getAttribute('data-text')
+        try{
+          await navigator.clipboard.writeText(text)
+          copyBtn.textContent = '✓'
+          setTimeout(()=>{ copyBtn.textContent = '📋' }, 1500)
+        }catch(e){
+          console.warn('copy failed', e)
+          alert('クリップボードへのコピーに失敗しました')
+        }
+      })
+    }
   })
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const snsBtn = document.getElementById('sns-btn')
-  if(snsBtn) snsBtn.addEventListener('click', generateSNS)
+  if(snsBtn) snsBtn.addEventListener('click', ()=>{
+    const modal = document.getElementById('sns-modal')
+    if(modal) modal.classList.add('modal-open')
+    generateSNS()
+  })
+
+  const snsGenerate = document.getElementById('sns-generate')
+  if(snsGenerate) snsGenerate.addEventListener('click', generateSNS)
 
   const snsClose = document.getElementById('sns-modal-close')
   if(snsClose) snsClose.addEventListener('click', ()=>document.getElementById('sns-modal').classList.remove('modal-open'))
+
+  const snsApiKeySave = document.getElementById('sns-api-key-save')
+  if(snsApiKeySave){
+    snsApiKeySave.addEventListener('click', ()=>{
+      const input = document.getElementById('sns-api-key-input')
+      const modelInput = document.getElementById('sns-model-input')
+      const apiKey = input ? input.value : ''
+      const modelName = modelInput ? (modelInput.value || DEFAULT_GEMINI_MODEL) : DEFAULT_GEMINI_MODEL
+      saveStoredApiKey(apiKey)
+      saveStoredModelName(modelName)
+      updateApiKeyStatus()
+      if(apiKey){
+        alert('Gemini APIキーとモデル名を保存しました')
+      }
+    })
+  }
+
+  const snsApiKeyClear = document.getElementById('sns-api-key-clear')
+  if(snsApiKeyClear){
+    snsApiKeyClear.addEventListener('click', ()=>{
+      const input = document.getElementById('sns-api-key-input')
+      const modelInput = document.getElementById('sns-model-input')
+      if(input) input.value = ''
+      if(modelInput) modelInput.value = DEFAULT_GEMINI_MODEL
+      saveStoredApiKey('')
+      saveStoredModelName(DEFAULT_GEMINI_MODEL)
+      updateApiKeyStatus()
+      alert('Gemini APIキーとモデル名を削除しました')
+    })
+  }
 
   const snsCopy = document.getElementById('sns-copy')
   if(snsCopy) snsCopy.addEventListener('click', async ()=>{
@@ -438,6 +703,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       prompt('以下をコピーしてください', lines)
     }
   })
+
+  updateApiKeyStatus()
 })
 
 function openAddModal(){

@@ -88,8 +88,28 @@ h1{margin:0 0 24px;font-size:24px}
 
 /* SNSモーダル内の生成結果 */
 #sns-results{margin-top:8px;display:flex;flex-direction:column;gap:8px}
-.sns-line{padding:8px;border-radius:6px;background:#fafafa;border:1px solid var(--border);font-size:14px}
+.sns-item{border:1px solid var(--border);border-radius:8px;background:#fafafa;overflow:hidden}
+.sns-item summary{padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px;background:#f3f6fb;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.sns-item summary::-webkit-details-marker{display:none}
+.sns-copy-btn{background:transparent;border:none;cursor:pointer;font-size:16px;padding:4px 6px;opacity:.6;transition:opacity .2s}
+.sns-copy-btn:hover{opacity:1}
+.sns-line{padding:12px;white-space:pre-wrap;word-break:break-word;line-height:1.6;font-size:14px;border-top:1px solid var(--border);background:#fff}
 #sns-status{font-size:12px;color:#666;margin-bottom:8px}
+.sns-settings{margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:#fafafa}
+.sns-settings label{display:block;margin-bottom:8px;font-size:13px;font-weight:600}
+.sns-option-group{margin-bottom:12px}
+.sns-option-group label{display:block;margin-bottom:8px;font-size:13px;font-weight:600}
+.sns-option-group input[type="radio"]{cursor:pointer}
+.api-key-row{display:flex;gap:8px;align-items:center}
+.api-key-row input{flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit}
+.sns-actions{display:flex;gap:8px}
+.sns-actions button{flex:1;padding:10px;border:none;border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;font-weight:600}
+.sns-actions button:hover{opacity:.9}
+.primary-btn{background:var(--accent);color:#fff}
+.secondary-btn,.link-btn{cursor:pointer;font-family:inherit}
+.secondary-btn{padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:#fff}
+.link-btn{padding:0;border:none;background:transparent;color:#666;text-decoration:underline}
+.api-key-meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:#666}
 
 @media(max-width:480px){
   .app-header h1{font-size:18px;line-height:1.35;margin-bottom:0}

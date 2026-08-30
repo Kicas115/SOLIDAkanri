@@ -87,11 +87,53 @@
         <button class="modal-close" id="sns-modal-close">&times;</button>
       </div>
       <div id="sns-modal-body" style="padding:16px;min-height:60px">
+        <div class="sns-settings">
+          <label for="sns-api-key-input">Gemini APIキー</label>
+          <div class="api-key-row">
+            <input id="sns-api-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="Gemini APIキーを入力">
+            <button id="sns-api-key-save" type="button" class="secondary-btn">保存</button>
+          </div>
+          <label for="sns-model-input" style="display:block;margin-top:12px">Gemini モデル名</label>
+          <div class="api-key-row">
+            <input id="sns-model-input" type="text" autocomplete="off" spellcheck="false" placeholder="gemini-3.5-flash-lite" value="gemini-3.5-flash-lite">
+          </div>
+          <div class="api-key-meta">
+            <span id="sns-api-key-status">未設定</span>
+            <button id="sns-api-key-clear" type="button" class="link-btn">削除</button>
+          </div>
+        </div>
+        <div class="sns-options">
+          <div class="sns-option-group">
+            <label style="display:block;margin-bottom:8px;font-weight:bold">プラットフォーム</label>
+            <div style="display:flex;gap:12px">
+              <label style="display:flex;align-items:center;gap:6px">
+                <input type="radio" name="sns-platform" value="x" checked> X（Twitter）
+              </label>
+              <label style="display:flex;align-items:center;gap:6px">
+                <input type="radio" name="sns-platform" value="instagram"> Instagram
+              </label>
+            </div>
+          </div>
+          <div class="sns-option-group" style="margin-top:12px">
+            <label style="display:block;margin-bottom:8px;font-weight:bold">トーン</label>
+            <div style="display:flex;gap:12px">
+              <label style="display:flex;align-items:center;gap:6px">
+                <input type="radio" name="sns-tone" value="catchy" checked> キャッチー
+              </label>
+              <label style="display:flex;align-items:center;gap:6px">
+                <input type="radio" name="sns-tone" value="polite"> 丁寧
+              </label>
+            </div>
+          </div>
+        </div>
         <div id="sns-status">生成待ち</div>
         <div id="sns-results"></div>
       </div>
       <div style="padding:0 16px 16px">
-        <button id="sns-copy" style="width:100%;padding:10px;border:none;border-radius:6px;background:var(--accent);color:#fff">コピー</button>
+        <div class="sns-actions">
+          <button id="sns-generate" type="button" class="primary-btn">生成</button>
+          <button id="sns-copy" type="button" class="primary-btn">コピー</button>
+        </div>
       </div>
     </div>
   </div>
