@@ -494,16 +494,6 @@ function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
 
   return `あなたは${platformName}の販促文作成担当です。以下の本リストをもとに、${platformName}向けの販促文を1件、${textLength}程度で出力してください。
 
-【重要】以下の各書籍について、Webで著者情報・内容概要・評判などを検索して、販促文に活かしてください：
-${bookTitles}
-
-${styleGuide}
-${platformGuide}
-- 本の魅力と購入意欲が伝わるようにする
-- 著者の実績、本の特徴、読者の感想など、Webで得られた情報を活用する
-- 1件ごとに改行して出力する
-- 文章だけを返し、説明文や見出しは不要
-
 本リスト:
 ${bookSummary}`
 }
