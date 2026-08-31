@@ -2,6 +2,7 @@
 const STORAGE_KEY = 'kanban_books_v2'
 const SNS_API_KEY_STORAGE_KEY = 'sns_api_key_session_v1'
 const SNS_MODEL_NAME_STORAGE_KEY = 'sns_model_name_session_v1'
+const SNS_SELECTED_BOOKS_KEY = 'sns_selected_books_v1'
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite'
 let currentStatus = null
 let editingIndex = null
@@ -48,6 +49,24 @@ function saveStoredModelName(modelName){
     sessionStorage.setItem(SNS_MODEL_NAME_STORAGE_KEY, value)
   }catch(e){
     console.warn('failed to save sns model name', e)
+  }
+}
+
+function getSelectedBookIds(){
+  try{
+    const stored = localStorage.getItem(SNS_SELECTED_BOOKS_KEY)
+    return stored ? JSON.parse(stored) : []
+  }catch(e){
+    console.warn('failed to read selected books', e)
+    return []
+  }
+}
+
+function setSelectedBookIds(ids){
+  try{
+    localStorage.setItem(SNS_SELECTED_BOOKS_KEY, JSON.stringify(ids))
+  }catch(e){
+    console.warn('failed to save selected books', e)
   }
 }
 
@@ -579,11 +598,71 @@ function clientGeneratePromos(books){
   })
 }
 
+function initSNSBooksList(){
+  const allBooks = getBooks().filter(b => b.status === '搬入済み')
+  const booksList = document.getElementById('sns-books-list')
+  if(!booksList) return
+  
+  booksList.innerHTML = ''
+  
+  if(allBooks.length === 0){
+    const empty = document.createElement('div')
+    empty.style.padding = '12px'
+    empty.style.fontSize = '13px'
+    empty.style.color = '#999'
+    empty.textContent = '搬入済みの本がありません'
+    booksList.appendChild(empty)
+    return
+  }
+  
+  const selectedIds = getSelectedBookIds()
+  
+  allBooks.forEach((book, index)=>{
+    const bookId = `book_${index}_${book.createdAt}`
+    const isSelected = selectedIds.includes(bookId)
+    
+    const item = document.createElement('div')
+    item.className = 'sns-book-item'
+    
+    const checkbox = document.createElement('input')
+    checkbox.type = 'checkbox'
+    checkbox.id = bookId
+    checkbox.checked = isSelected
+    checkbox.addEventListener('change', ()=>{
+      const currentSelected = getSelectedBookIds()
+      if(checkbox.checked){
+        if(!currentSelected.includes(bookId)) currentSelected.push(bookId)
+      }else{
+        const idx = currentSelected.indexOf(bookId)
+        if(idx !== -1) currentSelected.splice(idx, 1)
+      }
+      setSelectedBookIds(currentSelected)
+    })
+    
+    const label = document.createElement('label')
+    label.htmlFor = bookId
+    const title = book.title.length > 30 ? book.title.slice(0,27) + '…' : book.title
+    const displayText = `${title} ${book.price ? `(¥${Number(book.price).toLocaleString()})` : ''}`
+    label.textContent = displayText
+    
+    item.appendChild(checkbox)
+    item.appendChild(label)
+    booksList.appendChild(item)
+  })
+}
+
 async function generateSNS(){
-  const books = getBooks().filter(b => b.status === '搬入済み')
+  const allBooks = getBooks().filter(b => b.status === '搬入済み')
   const modal = document.getElementById('sns-modal')
   const statusEl = document.getElementById('sns-status')
   const resultsEl = document.getElementById('sns-results')
+  
+  initSNSBooksList()
+  
+  const selectedIds = getSelectedBookIds()
+  let books = selectedIds.length > 0 
+    ? allBooks.filter((b, index) => selectedIds.includes(`book_${index}_${b.createdAt}`))
+    : allBooks
   
   const platformSelected = document.querySelector('input[name="sns-platform"]:checked')
   const toneSelected = document.querySelector('input[name="sns-tone"]:checked')
@@ -689,6 +768,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
       saveStoredModelName(DEFAULT_GEMINI_MODEL)
       updateApiKeyStatus()
       alert('Gemini APIキーとモデル名を削除しました')
+    })
+  }
+
+  const snsSelectAll = document.getElementById('sns-books-select-all')
+  if(snsSelectAll){
+    snsSelectAll.addEventListener('click', (e)=>{
+      e.preventDefault()
+      const allBooks = getBooks().filter(b => b.status === '搬入済み')
+      const allIds = allBooks.map((b, index) => `book_${index}_${b.createdAt}`)
+      setSelectedBookIds(allIds)
+      initSNSBooksList()
+    })
+  }
+
+  const snsClearAll = document.getElementById('sns-books-clear-all')
+  if(snsClearAll){
+    snsClearAll.addEventListener('click', (e)=>{
+      e.preventDefault()
+      setSelectedBookIds([])
+      initSNSBooksList()
     })
   }
 
