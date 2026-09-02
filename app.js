@@ -463,7 +463,7 @@ function escapeHtml(s){
 
 function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
   if(!books || books.length === 0){
-    return '本なし。短いSNS販促文を1文だけ作成。'
+    return '本なし。短いSNS販促文を1文だけ作成。文章だけ返す。'
   }
 
   const platformName = platform === 'instagram' ? 'Instagram' : 'X'
@@ -478,7 +478,7 @@ function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
     })
     .slice(0, 10)
     .join('|')
-  return `${platformName}用、${toneName}な販促文を1文。${booksText}`
+  return `${platformName}用、${toneName}な販促文を1文。説明・前置き・見出し・引用符なしで文章だけ返す。${booksText}`
 }
 
 async function fetchPromosFromServer(books, platform = 'x', tone = 'catchy'){
