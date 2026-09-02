@@ -3,9 +3,49 @@ const STORAGE_KEY = 'kanban_books_v2'
 const SNS_API_KEY_STORAGE_KEY = 'sns_api_key_session_v1'
 const SNS_MODEL_NAME_STORAGE_KEY = 'sns_model_name_session_v1'
 const SNS_SELECTED_BOOKS_KEY = 'sns_selected_books_v1'
+const EXPENSE_RATE_STORAGE_KEY = 'expense_rate_v1'
+const PRICE_STATS_STORAGE_KEY = 'price_stats_v1'
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite'
 let currentStatus = null
 let editingIndex = null
+
+function getExpenseRate(){
+  const value = Number(localStorage.getItem(EXPENSE_RATE_STORAGE_KEY))
+  return Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0
+}
+
+function saveExpenseRate(value){
+  const rate = Math.min(100, Math.max(0, Number(value) || 0))
+  localStorage.setItem(EXPENSE_RATE_STORAGE_KEY, String(rate))
+  return rate
+}
+
+function getPreviousPriceStats(status){
+  try{
+    const stats = JSON.parse(localStorage.getItem(PRICE_STATS_STORAGE_KEY) || '{}')
+    return stats[status] || null
+  }catch(e){
+    console.warn('failed to read price stats', e)
+    return null
+  }
+}
+
+function savePriceStats(status, stats){
+  try{
+    const allStats = JSON.parse(localStorage.getItem(PRICE_STATS_STORAGE_KEY) || '{}')
+    allStats[status] = stats
+    localStorage.setItem(PRICE_STATS_STORAGE_KEY, JSON.stringify(allStats))
+  }catch(e){
+    console.warn('failed to save price stats', e)
+  }
+}
+
+function formatPriceChange(current, previous){
+  if(!Number.isFinite(previous)) return ''
+  const change = Math.floor(current) - Math.floor(previous)
+  if(change === 0) return '前回比±¥0'
+  return `前回比${change > 0 ? '+' : '-'}¥${Number(Math.abs(change)).toLocaleString()}`
+}
 
 function getStoredApiKey(){
   try{
@@ -113,9 +153,44 @@ function renderKanban(){
   
   statuses.forEach(status => {
     const container = document.querySelector(`[data-status="${status}"]`)
+    const profitTotal = document.querySelector(`[data-profit-status="${status}"]`)
+    const priceStats = document.querySelector(`[data-price-status="${status}"]`)
     container.innerHTML = ''
     
     const booksInStatus = books.filter(b => b.status === status)
+
+    if(profitTotal){
+      const total = booksInStatus.reduce((sum, book) => {
+        if(book.cost === undefined || book.price === undefined || book.cost === null || book.price === null){
+          return sum
+        }
+        return sum + (book.price * (1 - getExpenseRate() / 100) - book.cost)
+      }, 0)
+      profitTotal.textContent = `（利益合計: ¥${Number(total).toLocaleString()}）`
+    }
+
+    if(priceStats){
+      const prices = booksInStatus
+        .map(book => Number(book.price))
+        .filter(price => Number.isFinite(price))
+        .sort((a, b) => a - b)
+      const average = prices.length ? prices.reduce((sum, price) => sum + price, 0) / prices.length : null
+      const median = prices.length
+        ? (prices.length % 2 ? prices[(prices.length - 1) / 2] : (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2)
+        : null
+      const previous = getPreviousPriceStats(status)
+      if(prices.length){
+        const roundedAverage = Math.floor(average)
+        const roundedMedian = Math.floor(median)
+        const averageChange = previous ? formatPriceChange(roundedAverage, previous.average) : ''
+        const medianChange = previous ? formatPriceChange(roundedMedian, previous.median) : ''
+        priceStats.textContent = `（売値平均: ¥${roundedAverage.toLocaleString()}${averageChange ? ` ${averageChange}` : ''} / 中央値: ¥${roundedMedian.toLocaleString()}${medianChange ? ` ${medianChange}` : ''}）`
+        savePriceStats(status, { average: roundedAverage, median: roundedMedian })
+      }else{
+        priceStats.textContent = ''
+        savePriceStats(status, { average: null, median: null })
+      }
+    }
     
     booksInStatus.forEach((b, idx) => {
       const bookIdx = books.indexOf(b)
@@ -170,8 +245,8 @@ function createCard(book, idx){
   priceSpan.textContent = book.price ? `¥${Number(book.price).toLocaleString()}` : '¥—'
   priceSpan.title = 'クリックで編集'
   
-  const profitAmount = (book.cost !== undefined && book.price !== undefined && book.cost !== null && book.price !== null) 
-    ? book.price - book.cost 
+  const profitAmount = (book.cost !== undefined && book.price !== undefined && book.cost !== null && book.price !== null)
+    ? book.price * (1 - getExpenseRate() / 100) - book.cost
     : null
   const profitClass = profitAmount !== null && profitAmount >= 0 ? 'positive' : (profitAmount !== null ? 'negative' : '')
   const profitText = profitAmount !== null ? `¥${Number(profitAmount).toLocaleString()}` : '¥—'
@@ -813,6 +888,15 @@ function closeEditModal(){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  const expenseRateInput = document.getElementById('expense-rate')
+  if(expenseRateInput){
+    expenseRateInput.value = getExpenseRate()
+    expenseRateInput.addEventListener('change', ()=>{
+      expenseRateInput.value = saveExpenseRate(expenseRateInput.value)
+      renderKanban()
+    })
+  }
+
   renderKanban()
   setupDropZones()
   
@@ -844,11 +928,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('add-form').addEventListener('submit', e=>{
     e.preventDefault()
     const title = document.getElementById('add-title').value.trim()
+    const author = document.getElementById('add-author').value.trim()
+    const summary = document.getElementById('add-summary').value.trim()
     const cost = document.getElementById('add-cost').value
     const price = document.getElementById('add-price').value
     if(!title) return alert('タイトルは必須です')
     addBook({
       title,
+      author,
+      summary,
       cost: cost ? Number(cost) : null,
       price: price ? Number(price) : null,
       status: currentStatus,

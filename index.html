@@ -11,6 +11,9 @@
     <header class="app-header">
       <h1>蔵書管理 かんばん</h1>
       <div class="header-actions">
+        <label class="expense-rate">経費率
+          <input id="expense-rate" type="number" min="0" max="100" step="0.1" value="0">%
+        </label>
         <button id="sns-btn" class="btn-sns">SNS販促</button>
       </div>
     </header>
@@ -30,11 +33,11 @@
           <div class="kanban-cards" data-status="搬入する"></div>
         </div>
         <div class="kanban-list">
-          <h2>搬入済み</h2>
+          <h2>搬入済み <span class="status-profit-total" data-profit-status="搬入済み"></span><span class="status-price-stats" data-price-status="搬入済み"></span></h2>
           <div class="kanban-cards" data-status="搬入済み"></div>
         </div>
         <div class="kanban-list">
-          <h2>売れた</h2>
+          <h2>売れた <span class="status-profit-total" data-profit-status="売れた"></span></h2>
           <div class="kanban-cards" data-status="売れた"></div>
         </div>
       </div>
@@ -49,6 +52,8 @@
         </div>
         <form id="add-form">
           <label>タイトル<br><input id="add-title" required></label>
+          <label>著者名<br><input id="add-author"></label>
+          <label>概要<br><textarea id="add-summary" rows="3"></textarea></label>
           <label>仕入れ値（¥）<br><input id="add-cost" type="number" min="0" step="0.01"></label>
           <label>売値（¥）<br><input id="add-price" type="number" min="0" step="0.01"></label>
           <div class="modal-actions">

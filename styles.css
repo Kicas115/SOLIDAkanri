@@ -10,6 +10,8 @@ h1{margin:0 0 24px;font-size:24px}
 .kanban-board{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;overflow-x:auto;padding-bottom:16px}
 .kanban-list{min-width:0;background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column}
 .kanban-list h2{margin:0;padding:12px;background:#f6f8fa;border-bottom:1px solid var(--border);font-size:14px;font-weight:600}
+.status-profit-total{font-size:12px;font-weight:500;color:#555}
+.status-price-stats{font-size:12px;font-weight:500;color:#555}
 .kanban-cards{flex:1;padding:12px;min-height:200px;display:flex;flex-direction:column;gap:8px;background:var(--card)}
 .kanban-cards.drag-over{background:#f0f0f0}
 .empty-state{text-align:center;color:#999;font-size:12px;padding:20px 0}
@@ -41,7 +43,7 @@ h1{margin:0 0 24px;font-size:24px}
 .modal-close:hover{color:#222}
 #add-form, #edit-form{padding:16px}
 #add-form label, #edit-form label{display:block;margin-bottom:12px;font-size:14px}
-#add-form input, #edit-form input, #edit-form textarea{width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;margin-top:4px}
+#add-form input, #add-form textarea, #edit-form input, #edit-form textarea{width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;margin-top:4px}
 .modal-actions{display:flex;gap:8px;margin-top:16px}
 .modal-actions button{flex:1;padding:10px;border:none;border-radius:6px;cursor:pointer;font-weight:500}
 .modal-actions button[type="submit"]{background:var(--accent);color:#fff}
@@ -82,7 +84,9 @@ h1{margin:0 0 24px;font-size:24px}
 /* ヘッダーとSNSボタン */
 .app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .app-header h1{font-size:20px}
-.header-actions{display:flex;gap:8px}
+.header-actions{display:flex;align-items:center;gap:8px}
+.expense-rate{display:flex;align-items:center;gap:4px;font-size:12px;color:#555;white-space:nowrap}
+.expense-rate input{width:58px;padding:7px 4px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right}
 .btn-sns{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:600}
 .btn-sns:hover{opacity:.9}
 
@@ -121,4 +125,5 @@ h1{margin:0 0 24px;font-size:24px}
 
 @media(max-width:480px){
   .app-header h1{font-size:18px;line-height:1.35;margin-bottom:0}
+  .header-actions{flex-wrap:wrap;justify-content:flex-end}
 }
