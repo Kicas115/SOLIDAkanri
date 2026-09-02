@@ -471,12 +471,12 @@ function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
   const booksText = books
     .map(book => {
       const title = (book.title || '無題').replace(/[|;]/g, '')
-      const price = book.price != null ? `・${Number(book.price).toLocaleString()}円` : ''
-      return `${title}${price}`
+      const author = (book.author || '').replace(/[|;]/g, '')
+      return author ? `${title}/${author}` : title
     })
     .slice(0, 10)
     .join('|')
-  return `${platformName}用、${toneName}な販促文を1文。商品情報だけ使用、創作禁止。${booksText}`
+  return `${platformName}用、${toneName}な販促文を1文。${booksText}`
 }
 
 async function fetchPromosFromServer(books, platform = 'x', tone = 'catchy'){
