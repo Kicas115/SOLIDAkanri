@@ -462,40 +462,21 @@ function escapeHtml(s){
 }
 
 function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
-  const platformName = platform === 'x' ? 'X（Twitter）' : 'Instagram'
-  const isXFormat = platform === 'x'
-  const isCatchy = tone === 'catchy'
-  
   if(!books || books.length === 0){
-    const emptyPrompt = `以下の条件で、${platformName}向けの販促文を1件作成してください。\n- 取り扱い本なし\n- 文章は短く、購入につながる表現にする\n- 1件のみ返す`
-    if(!isCatchy) {
-      return emptyPrompt + '\n- 丁寧で信頼感のある表現にする'
-    }
-    return emptyPrompt
+    return '本なし。短いSNS販促文を1文だけ作成。'
   }
 
-  const bookSummary = books.map((book, index) => {
-    const title = book.title || 'タイトル未設定'
-    const price = book.price != null ? `¥${Number(book.price).toLocaleString()}` : '価格未定'
-    return `${index + 1}. ${title} / ${price}`
-  }).join('\n')
-
-  const bookTitles = books.map(b => b.title).filter(Boolean).join('、')
-  
-  const charLimit = isXFormat ? '280文字程度' : '150文字程度'
-  const textLength = isXFormat ? '1文〜2文' : '1文〜2文'
-  const styleGuide = isCatchy 
-    ? '- 親しみやすく、親友に話しかけるようなカジュアルな表現にする\n- 絵文字や感情表現を適度に交える'
-    : '- 丁寧で信頼感のある表現にする\n- 本の質や価値を落ち着いた表現で伝える'
-  
-  const platformGuide = isXFormat
-    ? '- X（Twitter）の特性を活かし、シェアしたくなるような表現にする'
-    : '- Instagramの視覚的な雰囲気に合う、読みやすく美しい表現にする'
-
-  return `あなたは${platformName}の販促文作成担当です。以下の本リストをもとに、${platformName}向けの販促文を1件、${textLength}程度で出力してください。
-
-本リスト:
-${bookSummary}`
+  const platformName = platform === 'instagram' ? 'Instagram' : 'X'
+  const toneName = tone === 'polite' ? '丁寧' : '親しみやすい'
+  const booksText = books
+    .map(book => {
+      const title = (book.title || '無題').replace(/[|;]/g, '')
+      const price = book.price != null ? `・${Number(book.price).toLocaleString()}円` : ''
+      return `${title}${price}`
+    })
+    .slice(0, 10)
+    .join('|')
+  return `${platformName}用、${toneName}な販促文を1文。商品情報だけ使用、創作禁止。${booksText}`
 }
 
 async function fetchPromosFromServer(books, platform = 'x', tone = 'catchy'){
@@ -516,12 +497,9 @@ async function fetchPromosFromServer(books, platform = 'x', tone = 'catchy'){
           parts: [{ text: prompt }]
         }],
         generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: 256
-        },
-        tools: [{
-          googleSearch: {}
-        }]
+          temperature: 0.5,
+          maxOutputTokens: 80
+        }
       }
       
       const resp = await fetch(url, {
@@ -815,6 +793,7 @@ function openEditModal(index){
   const book = books[index]
   
   document.getElementById('edit-title').value = book.title
+  document.getElementById('edit-author').value = book.author || ''
   document.getElementById('edit-cost').value = book.cost || ''
   document.getElementById('edit-price').value = book.price || ''
   
@@ -879,11 +858,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('edit-form').addEventListener('submit', e=>{
     e.preventDefault()
     const title = document.getElementById('edit-title').value.trim()
+    const author = document.getElementById('edit-author').value.trim()
     const cost = document.getElementById('edit-cost').value
     const price = document.getElementById('edit-price').value
     if(!title) return alert('タイトルは必須です')
     updateBook(editingIndex, {
       title,
+      author,
       cost: cost ? Number(cost) : null,
       price: price ? Number(price) : null
     })
