@@ -472,7 +472,9 @@ function buildGeminiPrompt(books, platform = 'x', tone = 'catchy'){
     .map(book => {
       const title = (book.title || '無題').replace(/[|;]/g, '')
       const author = (book.author || '').replace(/[|;]/g, '')
-      return author ? `${title}/${author}` : title
+      const summary = (book.summary || '').replace(/[|;]/g, '')
+      const details = [author, summary].filter(Boolean).join('/')
+      return details ? `${title}/${details}` : title
     })
     .slice(0, 10)
     .join('|')
@@ -794,6 +796,7 @@ function openEditModal(index){
   
   document.getElementById('edit-title').value = book.title
   document.getElementById('edit-author').value = book.author || ''
+  document.getElementById('edit-summary').value = book.summary || ''
   document.getElementById('edit-cost').value = book.cost || ''
   document.getElementById('edit-price').value = book.price || ''
   
@@ -859,12 +862,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     e.preventDefault()
     const title = document.getElementById('edit-title').value.trim()
     const author = document.getElementById('edit-author').value.trim()
+    const summary = document.getElementById('edit-summary').value.trim()
     const cost = document.getElementById('edit-cost').value
     const price = document.getElementById('edit-price').value
     if(!title) return alert('タイトルは必須です')
     updateBook(editingIndex, {
       title,
       author,
+      summary,
       cost: cost ? Number(cost) : null,
       price: price ? Number(price) : null
     })
