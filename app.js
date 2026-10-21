@@ -147,8 +147,119 @@ function saveBooks(books){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(books))
 }
 
+const BOOK_STATUSES = ['積読', '読了', '搬入する', '搬入済み', '売れた']
+
+function parseCsv(text){
+  const rows = []
+  let row = []
+  let field = ''
+  let inQuotes = false
+
+  for(let i = 0; i < text.length; i++){
+    const char = text[i]
+    if(inQuotes){
+      if(char === '"' && text[i + 1] === '"'){
+        field += '"'
+        i++
+      }else if(char === '"'){
+        inQuotes = false
+      }else{
+        field += char
+      }
+    }else if(char === '"' && field === ''){
+      inQuotes = true
+    }else if(char === ','){
+      row.push(field)
+      field = ''
+    }else if(char === '\n' || char === '\r'){
+      if(char === '\r' && text[i + 1] === '\n') i++
+      row.push(field)
+      if(row.some(value => value.trim() !== '')) rows.push(row)
+      row = []
+      field = ''
+    }else{
+      field += char
+    }
+  }
+
+  if(inQuotes) throw new Error('CSVの引用符が閉じられていません')
+  row.push(field)
+  if(row.some(value => value.trim() !== '')) rows.push(row)
+  return rows
+}
+
+function decodeCsvFile(buffer){
+  const utf8Decoder = new TextDecoder('utf-8', { fatal: true })
+  try{
+    return utf8Decoder.decode(buffer).replace(/^\uFEFF/, '')
+  }catch(e){
+    try{
+      return new TextDecoder('shift_jis').decode(buffer).replace(/^\uFEFF/, '')
+    }catch(decodeError){
+      throw new Error('CSVの文字コードを読み取れません。UTF-8またはShift-JISで保存してください')
+    }
+  }
+}
+
+function importBooksFromCsv(text){
+  const rows = parseCsv(text)
+  if(rows.length < 2) throw new Error('取り込めるデータ行がありません')
+
+  const headers = rows[0].map(header => header.trim().replace(/^\uFEFF/, ''))
+  const requiredHeaders = ['ID', 'ステータス', 'タイトル', '仕入値(円)', '売価(円)', '利益(円)', 'ラベル']
+  const columnIndexes = requiredHeaders.map(header => headers.indexOf(header))
+  const missingHeaders = requiredHeaders.filter((header, index) => columnIndexes[index] === -1)
+  if(missingHeaders.length){
+    throw new Error(`必要な列が見つかりません: ${missingHeaders.join('、')}`)
+  }
+
+  const [idIndex, statusIndex, titleIndex, costIndex, priceIndex, , labelIndex] = columnIndexes
+  const books = getBooks()
+  const knownIds = new Set(books.map(book => book.id).filter(id => id !== undefined && id !== null && id !== '').map(String))
+  const importedIds = new Set()
+  const additions = []
+  const errors = []
+  let skipped = 0
+
+  rows.slice(1).forEach((values, rowIndex)=>{
+    const line = rowIndex + 2
+    const valueAt = index => (values[index] || '').trim()
+    const id = valueAt(idIndex)
+    const status = valueAt(statusIndex)
+    const title = valueAt(titleIndex)
+    const costValue = valueAt(costIndex)
+    const priceValue = valueAt(priceIndex)
+    const label = valueAt(labelIndex)
+
+    if(!id || !title){
+      errors.push(`${line}行目: IDまたはタイトルが空欄`)
+      return
+    }
+    if(!BOOK_STATUSES.includes(status)){
+      errors.push(`${line}行目: ステータス「${status || '空欄'}」が不正`)
+      return
+    }
+    const cost = costValue === '' ? null : Number(costValue.replace(/[,¥￥\s]/g, ''))
+    const price = priceValue === '' ? null : Number(priceValue.replace(/[,¥￥\s]/g, ''))
+    if((costValue !== '' && (!Number.isFinite(cost) || cost < 0)) ||
+       (priceValue !== '' && (!Number.isFinite(price) || price < 0))){
+      errors.push(`${line}行目: 仕入れ値または売価が数値ではありません`)
+      return
+    }
+    if(knownIds.has(id) || importedIds.has(id)){
+      skipped++
+      return
+    }
+
+    importedIds.add(id)
+    additions.push({ id, title, status, cost, price, label, createdAt: Date.now() })
+  })
+
+  return { additions, skipped, errors }
+}
+
 function renderKanban(){
-  const statuses = ['積読', '読了', '搬入する', '搬入済み', '売れた']
+  const statuses = BOOK_STATUSES
   const books = getBooks()
   
   statuses.forEach(status => {
@@ -898,6 +1009,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   renderKanban()
   setupDropZones()
+
+  const importCsvButton = document.getElementById('import-csv-btn')
+  const importCsvFile = document.getElementById('import-csv-file')
+  importCsvButton.addEventListener('click', ()=>importCsvFile.click())
+  importCsvFile.addEventListener('change', async ()=>{
+    const file = importCsvFile.files[0]
+    if(!file) return
+    try{
+      const result = importBooksFromCsv(decodeCsvFile(await file.arrayBuffer()))
+      const errorSummary = result.errors.length
+        ? `\n取り込めない行: ${result.errors.length}件\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? '\n…' : ''}`
+        : ''
+      const confirmation = `新規追加: ${result.additions.length}件\n同じIDのためスキップ: ${result.skipped}件${errorSummary}\n\nCSVの「利益」は取り込まず、仕入れ値と売価からアプリ内で計算します。続行しますか？`
+      if(!result.additions.length && !result.errors.length){
+        alert(`新規追加できるデータがありません。同じIDのためスキップ: ${result.skipped}件`)
+        return
+      }
+      if(!confirm(confirmation)) return
+      saveBooks([...getBooks(), ...result.additions])
+      renderKanban()
+      alert(`${result.additions.length}件を取り込みました。${result.skipped}件を同じIDのためスキップしました。${result.errors.length ? `\n不正な行: ${result.errors.length}件` : ''}`)
+    }catch(e){
+      console.error('CSV import failed', e)
+      alert(`CSVを取り込めませんでした: ${e.message}`)
+    }finally{
+      importCsvFile.value = ''
+    }
+  })
   
   // 新規追加モーダルの閉じる
   document.getElementById('add-modal').querySelector('.modal-close').addEventListener('click', closeAddModal)
