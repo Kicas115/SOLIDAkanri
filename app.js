@@ -404,7 +404,6 @@ function handleTouchStart(e){
   const touch = e.touches[0]
   if(!touch) return
 
-  e.preventDefault()
   draggedCard = this
   touchDragState = {
     card: this,
