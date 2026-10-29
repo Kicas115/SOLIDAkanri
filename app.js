@@ -258,6 +258,33 @@ function importBooksFromCsv(text){
   return { additions, skipped, errors }
 }
 
+function exportBooksToCsv(books){
+  const headers = ['ID', 'ステータス', 'タイトル', '仕入値(円)', '売価(円)', '利益(円)', 'ラベル']
+  const rows = books.map((book, index)=>{
+    const id = book.id !== undefined && book.id !== null && book.id !== ''
+      ? book.id
+      : `local_${book.createdAt || 'unknown'}_${index}`
+    const profit = book.cost !== undefined && book.cost !== null &&
+      book.price !== undefined && book.price !== null
+      ? book.price * (1 - getExpenseRate() / 100) - book.cost
+      : ''
+    return [id, book.status || '', book.title || '', book.cost ?? '', book.price ?? '', profit, book.label || '']
+  })
+  return [headers, ...rows]
+    .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+    .join('\r\n')
+}
+
+function downloadBooksCsv(){
+  const csv = `\uFEFF${exportBooksToCsv(getBooks())}`
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `books-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 function renderKanban(){
   const statuses = BOOK_STATUSES
   const books = getBooks()
@@ -1012,6 +1039,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   const importCsvButton = document.getElementById('import-csv-btn')
   const importCsvFile = document.getElementById('import-csv-file')
+  document.getElementById('export-csv-btn').addEventListener('click', downloadBooksCsv)
   importCsvButton.addEventListener('click', ()=>importCsvFile.click())
   importCsvFile.addEventListener('change', async ()=>{
     const file = importCsvFile.files[0]
