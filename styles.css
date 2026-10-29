@@ -7,7 +7,7 @@ h1{margin:0 0 24px;font-size:24px}
 
 /* かんばんボード */
 .kanban-section{background:var(--bg)}
-.kanban-board{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;overflow-x:auto;padding-bottom:16px}
+.kanban-board{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;overflow-x:auto;padding-bottom:16px;-webkit-overflow-scrolling:touch}
 .kanban-list{min-width:0;background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column}
 .kanban-list h2{margin:0;padding:12px;background:#f6f8fa;border-bottom:1px solid var(--border);font-size:14px;font-weight:600}
 .status-profit-total{font-size:12px;font-weight:500;color:#555}
@@ -17,7 +17,8 @@ h1{margin:0 0 24px;font-size:24px}
 .empty-state{text-align:center;color:#999;font-size:12px;padding:20px 0}
 
 /* カード */
-.kanban-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:12px;cursor:grab;transition:all .2s;box-shadow:0 1px 2px rgba(0,0,0,.04);touch-action:none}
+.kanban-card{position:relative;background:#fff;border:1px solid var(--border);border-radius:6px;padding:12px;cursor:grab;transition:all .2s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card-drag-handle{display:none}
 .kanban-card:hover{box-shadow:0 2px 4px rgba(0,0,0,.08)}
 .kanban-card.dragging{opacity:.5;cursor:grabbing}
 .touch-drag-ghost{position:fixed;z-index:2000;pointer-events:none;opacity:.95;transform:rotate(1deg);box-shadow:0 8px 18px rgba(0,0,0,.18);background:#fff;border:1px solid var(--border);border-radius:6px;padding:12px;cursor:grabbing}
@@ -59,6 +60,8 @@ h1{margin:0 0 24px;font-size:24px}
   .kanban-list{min-width:220px}
   .modal-content{width:100%}
   .kanban-card{cursor:pointer}
+  .card-drag-handle{position:absolute;top:6px;right:6px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:1px solid var(--border);border-radius:6px;background:#f6f8fa;color:#555;font-size:20px;line-height:1;touch-action:none}
+  .card-title{padding-right:36px}
   .editable-field{display:inline-block;padding:6px 4px}
   .modal-actions button,.btn-sns,.btn-import,.btn-export{min-height:44px}
 }

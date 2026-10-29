@@ -365,6 +365,12 @@ function createCard(book, idx){
   const title = document.createElement('div')
   title.className = 'card-title'
   title.textContent = escapeHtml(book.title)
+
+  const dragHandle = document.createElement('button')
+  dragHandle.className = 'card-drag-handle'
+  dragHandle.type = 'button'
+  dragHandle.textContent = '⠿'
+  dragHandle.setAttribute('aria-label', 'ドラッグして移動')
   
   const meta = document.createElement('div')
   meta.className = 'card-meta'
@@ -400,10 +406,15 @@ function createCard(book, idx){
   meta.appendChild(profitSpan)
   
   card.appendChild(title)
+  card.appendChild(dragHandle)
   card.appendChild(meta)
   
   // カード全体をクリックして編集
   card.addEventListener('click', (e) => {
+    if(e.target.closest('.card-drag-handle')){
+      e.stopPropagation()
+      return
+    }
     if(card.dataset.dragMoved === 'true'){
       card.dataset.dragMoved = 'false'
       e.preventDefault()
@@ -427,10 +438,10 @@ function createCard(book, idx){
   
   card.addEventListener('dragstart', handleDragStart)
   card.addEventListener('dragend', handleDragEnd)
-  card.addEventListener('touchstart', handleTouchStart, { passive: false })
-  card.addEventListener('touchmove', handleTouchMove, { passive: false })
-  card.addEventListener('touchend', handleTouchEnd, { passive: false })
-  card.addEventListener('touchcancel', () => cleanupTouchDrag(), { passive: false })
+  dragHandle.addEventListener('touchstart', handleTouchStart, { passive: false })
+  dragHandle.addEventListener('touchmove', handleTouchMove, { passive: false })
+  dragHandle.addEventListener('touchend', handleTouchEnd, { passive: false })
+  dragHandle.addEventListener('touchcancel', () => cleanupTouchDrag(), { passive: false })
   
   return card
 }
@@ -536,26 +547,27 @@ function handleDragEnd(e){
 }
 
 function handleTouchStart(e){
-  if(this.classList.contains('add-card')) return
+  const card = this.closest('.kanban-card')
+  if(!card || card.classList.contains('add-card')) return
   if(e.target.closest('.editable-field')) return
 
   const touch = e.touches[0]
   if(!touch) return
 
-  draggedCard = this
+  draggedCard = card
   touchDragState = {
-    card: this,
+    card,
     startX: touch.clientX,
     startY: touch.clientY,
     moved: false
   }
-  this.classList.add('dragging')
-  this.dataset.dragMoved = 'false'
+  card.classList.add('dragging')
+  card.dataset.dragMoved = 'false'
 
   if(!touchGhost){
-    touchGhost = this.cloneNode(true)
+    touchGhost = card.cloneNode(true)
     touchGhost.classList.add('touch-drag-ghost')
-    touchGhost.style.width = `${this.getBoundingClientRect().width}px`
+    touchGhost.style.width = `${card.getBoundingClientRect().width}px`
     document.body.appendChild(touchGhost)
   }
   updateTouchGhostPosition(touch.clientX, touch.clientY)
